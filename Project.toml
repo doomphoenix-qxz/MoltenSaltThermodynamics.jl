@@ -1,0 +1,13 @@
+name = "MoltenSaltThermodynamics"
+uuid = "d4361f00-0c8d-11ea-2a9d-6df08e0aa564"
+authors = ["doomphoenix-qxz <richardlfitzhugh@gmail.com>"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
