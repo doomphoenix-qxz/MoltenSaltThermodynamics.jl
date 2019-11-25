@@ -2,7 +2,7 @@ const R = R_GAS
 const F = FARADAY 
 
 function gen_model(n, T=723.0)
-    coeff = R()*T/(n*F())
+    coeff = R*T/(n*F)
     model(x, E0) = E0[1] .+ coeff .* x
     return model
 end 
