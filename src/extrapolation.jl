@@ -9,8 +9,8 @@ end
 
 function get_rsquared(model, xdata, ydata)
     ȳ = mean(ydata)
-    sstot = sum((ydata .- ȳ)^2)
-    ssres = sum((ydata .- model(xdata))^2)
+    sstot = sum((ydata .- ȳ).^2)
+    ssres = sum((ydata .- model(xdata)).^2)
     R² = 1 - ssres/sstot 
     return R²
 end 
