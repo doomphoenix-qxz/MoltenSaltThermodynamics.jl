@@ -62,6 +62,7 @@ function plot_model(model, xdata, vdata, mixname="Mixture", addname="Additive")
     title!(scene, "Standard Potential Extrapolation")
     xlabel!(scene, "Natural log of Concetration of $addname in $mixname")
     ylabel!(scene, "Measured Potential (V)")
+    return scene
 end 
 
         
