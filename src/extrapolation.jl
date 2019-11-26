@@ -57,7 +57,7 @@ function plot_model(model, xdata, vdata, mixname="Mixture", addname="Additive")
     myxrange = minimum(logxs) .- 0.1:0.01:0.0
     mynewxs = collect(myxrange)
     mynewys = broadcast(model, mynewxs)
-    scene = scatter(logxs, edata, label=:Experimental, legend=:topleft)
+    scene = scatter(logxs, vdata, label=:Experimental, legend=:topleft)
     plot!(scene, mynewxs, mynewys, label=:Extrapolated)
     title!(scene, "Standard Potential Extrapolation")
     xlabel!(scene, "Natural log of Concetration of $addname in $mixname")
