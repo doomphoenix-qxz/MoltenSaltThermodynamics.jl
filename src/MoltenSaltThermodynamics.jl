@@ -8,6 +8,6 @@ const FARADAY = 96485.3365
 
 include("extrapolation.jl")
 
-export infinitedilution_extrapolate, plot_model  
+export infinitedilution_extrapolate, plot_model, compare_actcoeffs 
 
 end # module
