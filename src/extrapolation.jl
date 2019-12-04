@@ -65,4 +65,20 @@ function plot_model(model, xdata, vdata, mixname="Mixture", addname="Additive")
     return scene
 end 
 
-        
+function compare_actcoeffs(extrap_model, purecomp_enot, xdata, edata,mixname="Mixture", addname="Additive")
+    logxs = log.(xdata)
+    rightslope = extrap_model(1.0) - extrap_model(0.0)
+    puremodel(x) = x .* rightslope .+ purecomp_enot 
+    unrefined_pure = edata .- puremodel(logxs)
+    unrefined_infd = edata .- extrap_model(logxs)
+    newcoeff = 1.0/rightslope 
+    pureγ = exp.(unrefined_pure .* newcoeff)
+    infdγ = exp.(unrefined_infd .* newcoeff)
+
+    scene = scatter(logxs, infdγ, label=:Extrapolated, legend=:topleft)
+    scatter!(scene, logxs, pureγ, label=Symbol("Pure Component"))
+    title!(scene, "Activity Coefficient Comparison for $addname in $mixture")
+    xlabel!(scene, "Natural log of Concentration")
+    ylabel!(scene, "Log10 of Activity Coefficient")
+    return scene
+end 
