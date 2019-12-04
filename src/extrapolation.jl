@@ -77,7 +77,7 @@ function compare_actcoeffs(extrap_model, purecomp_enot, xdata, edata,mixname="Mi
 
     scene = scatter(logxs, infdγ, label=:Extrapolated, legend=:topleft)
     scatter!(scene, logxs, pureγ, label=Symbol("Pure Component"))
-    title!(scene, "Activity Coefficient Comparison for $addname in $mixture")
+    title!(scene, "Activity Coefficient Comparison for $addname in $mixname")
     xlabel!(scene, "Natural log of Concentration")
     ylabel!(scene, "Log10 of Activity Coefficient")
     return scene
