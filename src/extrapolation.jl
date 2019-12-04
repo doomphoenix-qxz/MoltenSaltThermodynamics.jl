@@ -74,7 +74,8 @@ function compare_actcoeffs(extrap_model, purecomp_enot, xdata, edata,mixname="Mi
     newcoeff = 1.0/rightslope 
     pureγ = exp.(unrefined_pure .* newcoeff)
     infdγ = exp.(unrefined_infd .* newcoeff)
-
+    print("Pure Component Activities for $addname in $mixname: ", pureγ)
+    print("Infinite Dilution Activities for $addname in $mixname: ", infdγ)
     scene = scatter(logxs, log10.(infdγ), label=:Extrapolated, legend=:topleft)
     scatter!(scene, logxs, log10.(pureγ), label=Symbol("Pure Component"))
     title!(scene, "Activity Coefficient Comparison for $addname in $mixname")
