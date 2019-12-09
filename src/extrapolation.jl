@@ -1,6 +1,21 @@
 const R = R_GAS 
 const F = FARADAY 
 
+struct SimpleLinearModel{T}
+    standardpotential::T
+    slope::T
+end 
+
+SimpleLinearModel(a::Number, b::Number) = SimpleLinearModel(promote(a, b)...)
+function (s::SimpleLinearModel)(x)
+    return s.slope .* log.(x) .+ s.standardpotential
+end 
+
+struct ModelResult{S, T}
+    themodel::S
+    theplot::T
+end 
+
 function gen_model(n, T=723.0)
     coeff = R*T/(n*F)
     model(x, E0) = E0[1] .+ coeff .* x
@@ -18,7 +33,9 @@ end
 function fitamodel(tofit, xdata, ydata)
     p0 = [1.0]
     fit = curve_fit(tofit, xdata, ydata, p0)
-    return x -> tofit(x, fit.param[1])
+    e0 = fit.param[1]
+    slope = tofit(1.0, e0)  - tofit(0.0, e0)
+    return SimpleLinearModel(e0, slope)
 end 
 
 function infinitedilution_extrapolate(xdata, vdata, n, T)
@@ -62,7 +79,7 @@ function plot_model(model, xdata, vdata, mixname="Mixture", addname="Additive")
     title!(scene, "Standard Potential Extrapolation")
     xlabel!(scene, "Natural log of Concetration of $addname in $mixname")
     ylabel!(scene, "Measured Potential (V)")
-    return scene
+    return ModelResult(model, scene) 
 end 
 
 function compare_actcoeffs(extrap_model, purecomp_enot, xdata, edata,mixname="Mixture", addname="Additive")
