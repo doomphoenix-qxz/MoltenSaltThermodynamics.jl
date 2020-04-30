@@ -1,14 +1,17 @@
 const R = R_GAS 
 const F = FARADAY 
 
-struct SimpleLinearModel{T}
+struct SimpleLinearModel{T<:Real}
     standardpotential::T
     slope::T
+    rsquared::T
+    SimpleLinearModel{T}(a,b,c) where {T<:Real} = new(a,b,c)
 end 
 
-SimpleLinearModel(a::Number, b::Number) = SimpleLinearModel(promote(a, b)...)
+SimpleLinearModel(a::Float64, b::Float64, c::Float64) = SimpleLinearModel{Float64}(a,b,c)
+#SimpleLinearModel(a::Real, b::Real)  = SimpleLinearModel{Real}(promote(a, b)...)
 function (s::SimpleLinearModel)(x)
-    return s.slope .* log.(x) .+ s.standardpotential
+    return s.slope .* x .+ s.standardpotential
 end 
 
 struct ModelResult{S, T}
@@ -35,17 +38,18 @@ function fitamodel(tofit, xdata, ydata)
     fit = curve_fit(tofit, xdata, ydata, p0)
     e0 = fit.param[1]
     slope = tofit(1.0, e0)  - tofit(0.0, e0)
-    return SimpleLinearModel(e0, slope)
+    Rsq = get_rsquared(x->tofit(x,e0), xdata, ydata)
+    return SimpleLinearModel(e0, slope, Rsq)
 end 
 
 function infinitedilution_extrapolate(xdata, vdata, n, T)
     logxs = log.(xdata)
     fitmodel = gen_model(n, T)
     initialmodel = fitamodel(fitmodel, logxs, vdata) 
-    Rsq = get_rsquared(initialmodel, logxs, vdata)
+    Rsq = initialmodel.rsquared
     finalmodel = initialmodel 
     modeltwopoints = fitamodel(fitmodel, logxs[1:2], vdata[1:2])
-    oldRsq = get_rsquared(modeltwopoints, logxs[1:2], vdata[1:2])
+    oldRsq = modeltwopoints.rsquared 
     # this is to initialize finalmodel with the right type; we're going
     # to figure out what the REAL final model is in a bit
     for i in 3:length(xdata)
@@ -95,8 +99,8 @@ function compare_actcoeffs(extrap_model, purecomp_enot, xdata, edata,mixname="Mi
     print("Infinite Dilution Activities for $addname in $mixname: ", infdγ)
     scene = scatter(logxs, log10.(infdγ), label=:Extrapolated, legend=:topleft)
     scatter!(scene, logxs, log10.(pureγ), label=Symbol("Pure Component"))
-    title!(scene, "Activity Coefficient Comparison for $addname in $mixname")
-    xlabel!(scene, "Natural log of Concentration")
-    ylabel!(scene, "Log10 of Activity Coefficient")
+    title!(scene, latexstring("\\mathrm{Activity \\: Coefficient \\: Comparison \\: for \\: $addname \\: in \\: $mixname}"))
+    xlabel!(scene, latexstring("\\mathrm{Natural \\: log \\: of \\: Concentration}"))
+    ylabel!(scene, latexstring("\\mathrm{Log}_{10} \\mathrm{ \\: of \\: Activity \\: Coefficient}"))
     return scene
 end 
