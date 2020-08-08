@@ -2,7 +2,7 @@ using MoltenSaltThermodynamics
 using Test
 using DataFrames, CSV
 
-mydata1 = CSV.File("data/cocl2_naclkcl.csv") |> DataFrame 
+mydata1 = CSV.File("cocl2_naclkcl.csv") |> DataFrame 
 n = 2.0
 T = 1073.0
 edata = mydata1[!, Symbol("800C")].* -1  
