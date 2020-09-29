@@ -50,8 +50,23 @@ function Sconfig(molefracs, pairfracs)
   Xaa, Xbb, Xab = pairfracs 
   Ya = Xaa + Xab/2 
   Yb = Xbb + Xab/2 
-  term1 = Xa*log(Xa) + Xb*log(Xb)
-  term2 = Xaa*log(Xaa/Ya^2) + Xbb*log(Xbb/Yb^2)+Xab*log(Xab/(2*Ya*Yb)) 
+  term1 = 0
+  if Xa != 0 
+    term1 += Xa*log(Xa) 
+  end
+  if Xb!= 0
+    term1 += Xb*log(Xb)
+  end 
+  term2 = 0 
+  if Xaa != 0
+    term2 += Xaa*log(Xaa/Ya^2) 
+  end 
+  if Xbb != 0
+    term2 += Xbb*log(Xbb/Yb^2)
+  end 
+  if Xab != 0 
+    term2 += Xab*log(Xab/(2*Ya*Yb))
+  end 
   return -R_GAS*(term1 + term2)
 end 
 
@@ -61,9 +76,14 @@ system. Eqn 9 of Pelton et al. I
 """
 function gibbs_binary_solution(data::BinaryMQCModel,molefracs, 
                                pairfracs, purecompdata,temp)
+  if Xb == 0
+    return gibbsenergy(purecompdata[1], temp)
+  elseif Xa ==0
+    return gibbsenergy(purecompdata[2], temp)
+  end 
   Xa, Xb = molefracs 
   Xaa, Xbb, Xab = pairfracs 
-  Za, Zb = coordination(data, pairfracs)
+  #Za, Zb = coordination(data, pairfracs)
   ΔSconfig = Sconfig(molefracs, pairfracs)
   Δgab = gab(data, pairfracs)
   ga = gibbsenergy(purecompdata[1], temp)
@@ -100,5 +120,10 @@ end
 # notation: Xa is mole fraction of a, Ya is coordiation-equivalent
 # fraction of a (see Pelton and Blander's paper)
 #
-
-
+function find_configuration(data::BinaryMQCModel,molefracs, 
+                                purecompdata,temp,
+                               x0 = [0.5,0.5,0.5], algo = LGBFS())
+  f(x) = gibbsbinarysolution(data, molefracs, x, purecompdata, temp)
+  myans1 = optimize(f, x0, algo; autodiff=:forward)
+  println(myans)
+end 

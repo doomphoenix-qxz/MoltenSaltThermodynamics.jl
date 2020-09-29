@@ -20,7 +20,7 @@ struct ModelResult{S, T}
 end 
 
 function gen_model(n, T=723.0)
-    coeff = R*T/(n*F)
+  coeff = R*T*log(10.0)/(n*F)
     model(x, E0) = E0[1] .+ coeff .* x
     return model
 end 
@@ -43,7 +43,7 @@ function fitamodel(tofit, xdata, ydata)
 end 
 
 function infinitedilution_extrapolate(xdata, vdata, n, T)
-    logxs = log.(xdata)
+    logxs = log10.(xdata)
     fitmodel = gen_model(n, T)
     initialmodel = fitamodel(fitmodel, logxs, vdata) 
     Rsq = initialmodel.rsquared
@@ -74,33 +74,33 @@ function infinitedilution_extrapolate(xdata, vdata, n, T)
 end 
 
 function plot_model(model, xdata, vdata, mixname="Mixture", addname="Additive")
-    logxs = log.(xdata)
+    logxs = log10.(xdata)
     myxrange = minimum(logxs) .- 0.1:0.01:0.0
     mynewxs = collect(myxrange)
     mynewys = broadcast(model, mynewxs)
-    scene = scatter(logxs, vdata, label=:Experimental, legend=:topleft)
-    plot!(scene, mynewxs, mynewys, label=:Extrapolated)
+    scene = scatter(logxs, vdata, label="Experimental", legend=:topleft)
+    plot!(scene, mynewxs, mynewys, label="Extrapolated")
     title!(scene, "Standard Potential Extrapolation")
-    xlabel!(scene, "Natural log of Concetration of $addname in $mixname")
+    xlabel!(scene, "Log10 of Concetration of $addname in $mixname")
     ylabel!(scene, "Measured Potential (V)")
     return ModelResult(model, scene) 
 end 
 
 function compare_actcoeffs(extrap_model, purecomp_enot, xdata, edata,mixname="Mixture", addname="Additive")
-    logxs = log.(xdata)
+    logxs = log10.(xdata)
     rightslope = extrap_model(1.0) - extrap_model(0.0)
     puremodel(x) = x .* rightslope .+ purecomp_enot 
     unrefined_pure = edata .- puremodel(logxs)
     unrefined_infd = edata .- extrap_model(logxs)
     newcoeff = 1.0/rightslope 
-    pureγ = exp.(unrefined_pure .* newcoeff)
-    infdγ = exp.(unrefined_infd .* newcoeff)
+    pureγ = 10 .^ (unrefined_pure .* newcoeff)
+    infdγ = 10 .^ (unrefined_infd .* newcoeff)
     print("Pure Component Activities for $addname in $mixname: ", pureγ)
     print("Infinite Dilution Activities for $addname in $mixname: ", infdγ)
-    scene = scatter(log10.(xdata), log10.(infdγ), label=:Extrapolated, legend=:topleft)
-    scatter!(scene, log10.(xdata), log10.(pureγ), label=Symbol("Pure Component"))
-    title!(scene, latexstring("\\mathrm{Activity \\: Coefficient \\: Comparison \\: for \\: $addname \\: in \\: $mixname}"))
-    xlabel!(scene, latexstring("\\mathrm{Log_{10} \\: of \\: Concentration}"))
-    ylabel!(scene, latexstring("\\mathrm{Log}_{10} \\mathrm{ \\: of \\: Activity \\: Coefficient}"))
+    scene = scatter(log10.(xdata), log10.(infdγ), label="Extrapolated", legend=:topleft)
+    scatter!(scene, log10.(xdata), log10.(pureγ), label="Pure Component")
+    #title!(scene, latexstring("\\mathrm{Activity \\: Coefficient \\: Comparison \\: for \\: $addname \\: in \\: $mixname}"))
+    xlabel!(scene, latexstring("\\mathrm{Log}_{10} \\mathrm{ \\: of \\: concentration \\: (mole \\: fraction)}"))
+    ylabel!(scene, latexstring("\\mathrm{Log}_{10} \\mathrm{ \\: of \\: activity \\: coefficient}"))
     return scene
 end 
