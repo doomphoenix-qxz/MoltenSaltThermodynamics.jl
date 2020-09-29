@@ -92,5 +92,5 @@ T_data_Hex = [1073., 1073., 1073., 1073.,
   KClMgCl2_model = BinaryMQCModel(mygab0, mygai, mygbj, mycoordparams) 
   initguess = [0.99, 0.005, 0.005]
   
-  findconfiguration(KClMgCl2_model, [0.99,0.01],[KCll, MgCl2l], 900.0,initguess) 
+  find_configuration(KClMgCl2_model, [0.99,0.01],[KCll, MgCl2l], 900.0,initguess) 
 end

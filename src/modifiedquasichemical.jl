@@ -123,7 +123,7 @@ end
 function find_configuration(data::BinaryMQCModel,molefracs, 
                                 purecompdata,temp,
                                x0 = [0.5,0.5,0.5], algo = LGBFS())
-  f(x) = gibbsbinarysolution(data, molefracs, x, purecompdata, temp)
+  f(x) = gibbs_binary_solution(data, molefracs, x, purecompdata, temp)
   myans1 = optimize(f, x0, algo; autodiff=:forward)
   println(myans)
 end 
