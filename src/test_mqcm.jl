@@ -84,13 +84,44 @@ T_data_Hex = [1073., 1073., 1073., 1073.,
                      MgCl2l = PureComp([-606887.4, 117.29708, 92.048, 0.,0.,0.,0.])
                      K2MgCl4s = PureComp([-1550013.0, 216.8, 263.05,0.,0.,0.,0.])
                      KMgCl3s = PureComp([-1100924.0, 162.3,157.65,0.,0.,0.,0.0])
-  
+  Temp = 1073.0 
   mygab0 = -17947.0 
   mygai = [-1026.0]
   mygbj = [-14801.0]
   mycoordparams = [6.0,6.0,3.0,6.0]
   KClMgCl2_model = BinaryMQCModel(mygab0, mygai, mygbj, mycoordparams) 
-  initguess = [0.99, 0.005, 0.005]
-  
-  find_configuration(KClMgCl2_model, [0.99,0.01],[KCll, MgCl2l], 900.0,initguess) 
+  initguess = [0.990, 0.005, 0.005]
+  my_mfracs = [[x, 1-x] for x in 0.999:-0.001:0.001]
+  myfunction(mf, pfg) = find_configuration2(KClMgCl2_model, mf,[KCll, MgCl2l], Temp, pfg)
+  manyans = Vector{Any}(undef, 999)
+  manyans[1] = myfunction(my_mfracs[1], initguess)
+  for i in 2:length(manyans)
+    manyans[i] = myfunction(my_mfracs[i], manyans[i-1].zero)
+  end
+  minims = [x.zero for x in manyans]
+  xaa = [thing[1] for thing in minims]
+  xbb = [thing[2] for thing in minims]
+  xab = [thing[3] for thing in minims]
+  Xaspace = [my_mfracs[i][1] for i in 1:length(my_mfracs)]
+  # Yes, I know that I don't have to use a different internal variable
+  # for the following functions. I just want to. 
+  mygibbs(i) = gibbs_binary_solution(KClMgCl2_model, my_mfracs[i], minims[i], [KCll, MgCl2l], Temp)
+  mygibbsex(j) = gibbs_excess(KClMgCl2_model, minims[j])
+  mygibbsex2(k) = gibbs_excess2(KClMgCl2_model, my_mfracs[k], minims[k], [KCll, MgCl2l], Temp)
+  myenthex2(l) = enthalpy_excess(KClMgCl2_model, my_mfracs[l], minims[l], [KCll, MgCl2l], Temp)
+  gibbsl = [mygibbsex(j) for j in 1:length(manyans)]
+  gibbsx2 = [mygibbsex2(k) for k in 1:length(manyans)]
+  enthex = [myenthex2(l) for l in 1:length(manyans)]
+  #println(length(gibbsl))
+  sc1 = plot(xab, label="Xab")
+  plot!(sc1, xaa, label="Xaa")
+  plot!(sc1, xbb, label="Xbb")
+  #println(my_mfracs)
+  #print(Xaspace)
+  sc2 = plot(Xaspace ,gibbsl, label="GEx by Eqn 35")
+  plot!(sc2, Xaspace, gibbsx2, label="GEx by definition")
+  plot!(sc2, Xaspace, enthex, label="Hex")
+  scatter!(sc2, reverse(x_data_Hex), Hex_data_Hex, label="Hex data")
+  println("Gibbs of solid KCl at 1400: ", gibbsenergy(KCls, 1400.0))
+  println("Gibbs of solid MgCl2 at 1400: ", gibbsenergy(MgCl2s, 1400.0))
 end

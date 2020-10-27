@@ -97,9 +97,9 @@ function compare_actcoeffs(extrap_model, purecomp_enot, xdata, edata,mixname="Mi
     infdγ = 10 .^ (unrefined_infd .* newcoeff)
     print("Pure Component Activities for $addname in $mixname: ", pureγ)
     print("Infinite Dilution Activities for $addname in $mixname: ", infdγ)
-    scene = scatter(log10.(xdata), log10.(infdγ), label="Extrapolated", legend=:topleft)
+    scene = scatter(log10.(xdata), log10.(infdγ), label="Extrapolated", legend=:topleft, size=(400,400))
     scatter!(scene, log10.(xdata), log10.(pureγ), label="Pure Component")
-    #title!(scene, latexstring("\\mathrm{Activity \\: Coefficient \\: Comparison \\: for \\: $addname \\: in \\: $mixname}"))
+    #title!(scene, latexstring("\\mathrm{Activity \\: Coefficient \\: Comparison \\: for \\: $addname \top\: in \\: $mixname}"))
     xlabel!(scene, latexstring("\\mathrm{Log}_{10} \\mathrm{ \\: of \\: concentration \\: (mole \\: fraction)}"))
     ylabel!(scene, latexstring("\\mathrm{Log}_{10} \\mathrm{ \\: of \\: activity \\: coefficient}"))
     return scene
