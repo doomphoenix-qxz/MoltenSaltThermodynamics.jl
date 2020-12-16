@@ -91,24 +91,35 @@ T_data_Hex = [1073., 1073., 1073., 1073.,
   mycoordparams = [6.0,6.0,3.0,6.0]
   KClMgCl2_model = BinaryMQCModel(mygab0, mygai, mygbj, mycoordparams) 
   initguess = [0.990, 0.005, 0.005]
-  my_mfracs = [[x, 1-x] for x in 0.999:-0.001:0.001]
-  myfunction(mf, pfg) = find_configuration2(KClMgCl2_model, mf,[KCll, MgCl2l], Temp, pfg)
-  manyans = Vector{Any}(undef, 999)
+  my_mfracs = [[x, 1-x] for x in 0.999:-0.001:0.001] 
+  myfunction(mf, pfg=missing) = find_configuration2(KClMgCl2_model, mf,[KCll, MgCl2l], Temp, pfg)
+  manyans = Vector{Any}(undef, length(my_mfracs))
   manyans[1] = myfunction(my_mfracs[1], initguess)
+  max_nab = mycoordparams[1]/2  
+  @bp
   for i in 2:length(manyans)
     manyans[i] = myfunction(my_mfracs[i], manyans[i-1].zero)
-  end
-  minims = [x.zero for x in manyans]
-  xaa = [thing[1] for thing in minims]
-  xbb = [thing[2] for thing in minims]
-  xab = [thing[3] for thing in minims]
+  end 
+  coordnums = [coordination(KClMgCl2_model, manyans[i].zero) for i in 1:length(my_mfracs)]
+  totpairs = [sum(coordnums[i] .* my_mfracs[i])/2 for i in 1:length(my_mfracs)]
+  Xminims = [x.zero for x in manyans]
+  npairspace = Xminims .* totpairs 
+  xaa = [thing[1] for thing in Xminims]
+  xbb = [thing[2] for thing in Xminims]
+  xab = [thing[3] for thing in Xminims]
+  naa = [thing[1] for thing in npairspace]
+  nbb = [thing[2] for thing in npairspace]
+  nab = [thing[3] for thing in npairspace]
   Xaspace = [my_mfracs[i][1] for i in 1:length(my_mfracs)]
   # Yes, I know that I don't have to use a different internal variable
   # for the following functions. I just want to. 
-  mygibbs(i) = gibbs_binary_solution(KClMgCl2_model, my_mfracs[i], minims[i], [KCll, MgCl2l], Temp)
-  mygibbsex(j) = gibbs_excess(KClMgCl2_model, minims[j])
-  mygibbsex2(k) = gibbs_excess2(KClMgCl2_model, my_mfracs[k], minims[k], [KCll, MgCl2l], Temp)
-  myenthex2(l) = enthalpy_excess(KClMgCl2_model, my_mfracs[l], minims[l], [KCll, MgCl2l], Temp)
+  mygibbs(i) = gibbs_binary_solution(KClMgCl2_model, my_mfracs[i], Xminims[i], [KCll, MgCl2l], Temp)
+  myent(m) = Sconfig(KClMgCl2_model, my_mfracs[m], Xminims[m])
+  mygibbsex(j) = gibbs_excess_eq35(KClMgCl2_model, [naa[j], nbb[j], nab[j]])
+  mygibbsex2(k) = gibbs_excess2(KClMgCl2_model, my_mfracs[k], Xminims[k], [KCll, MgCl2l], Temp)
+  myenthex2(l) = enthalpy_excess(KClMgCl2_model, my_mfracs[l], Xminims[l], [KCll, MgCl2l], Temp)
+  gibbsltot = [mygibbs(i) for i in 1:length(manyans)]
+  entconfig = [myent(m) for m in 1:length(manyans)]
   gibbsl = [mygibbsex(j) for j in 1:length(manyans)]
   gibbsx2 = [mygibbsex2(k) for k in 1:length(manyans)]
   enthex = [myenthex2(l) for l in 1:length(manyans)]
@@ -116,12 +127,28 @@ T_data_Hex = [1073., 1073., 1073., 1073.,
   sc1 = plot(xab, label="Xab")
   plot!(sc1, xaa, label="Xaa")
   plot!(sc1, xbb, label="Xbb")
+  plot!(sc1, naa, label="naa")
+  plot!(sc1, nab, label="nab")
+  plot!(sc1, nbb, label="nbb")
+  savefig(sc1, "/home/doomphoenix/Documents/Research/MQCM/testfig1.png")
+  display(sc1)
   #println(my_mfracs)
   #print(Xaspace)
   sc2 = plot(Xaspace ,gibbsl, label="GEx by Eqn 35")
   plot!(sc2, Xaspace, gibbsx2, label="GEx by definition")
   plot!(sc2, Xaspace, enthex, label="Hex")
-  scatter!(sc2, reverse(x_data_Hex), Hex_data_Hex, label="Hex data")
-  println("Gibbs of solid KCl at 1400: ", gibbsenergy(KCls, 1400.0))
-  println("Gibbs of solid MgCl2 at 1400: ", gibbsenergy(MgCl2s, 1400.0))
+  scatter!(sc2, 1 .- x_data_Hex, Hex_data_Hex, label="Hex data")
+  savefig(sc2, "/home/doomphoenix/Documents/Research/MQCM/testfig2.png")
+  ##display(sc2) 
+  #println("Gibbs of solid KCl at 1400: ", gibbsenergy(KCls, 1400.0))
+  #println("Gibbs of solid MgCl2 at 1400: ", gibbsenergy(MgCl2s, 1400.0))
+  sc3 = plot(Xaspace, gibbsltot, label="Total Gibbs liquid")
+  savefig(sc3, "/home/doomphoenix/Documents/Research/MQCM/testfig3.png")
+  ##display(sc3)
+  sc4 = plot(Xaspace, entconfig, label="Config. entropy")
+  savefig(sc4, "/home/doomphoenix/Documents/Research/MQCM/testfig4.png")
+  ##display(sc4)
+  println("Gibbs of total liquid at mole frac ", Xaspace[500], " KCl: ", gibbsltot[500])
+  println("Entropy of total liquid at mole frac ", Xaspace[500], " KCl: ", gibbsltot[500])
+  println("Config Entropy of total liquid at mole frac ", Xaspace[500], " KCl: ", entconfig[500])
 end

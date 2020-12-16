@@ -1,4 +1,3 @@
-
 """
 Holds the parameters unique to a particular binary subsystem modeled by
 the MQCM; namely, the parameters in Eqns 17, 19, and 20 of Pelton et al 
@@ -19,11 +18,11 @@ Modified Quasichemical Model and its configuration in pair fractions.
 Eqns. 19-20 of Pelton et al. 'The Modified Quasichemical 
 Model I--Binary Solutions'
 """
-function coordination(data::BinaryMQCModel, pairfracs)
+function coordination(data::BinaryMQCModel, npairs)
   Za_aa, Zb_bb, Za_ab, Zb_ba = data.coordparams 
-  Xaa, Xbb, Xab = pairfracs 
-  inv_Za = 2Xaa/(Za_aa*(2Xaa + Xab)) + Xab/(Za_ab*(2Xaa + Xab))
-  inv_Zb = 2Xbb/(Zb_bb*(2Xbb + Xab)) + Xab/(Zb_ba*(2Xbb + Xab))
+  naa, nbb, nab = npairs 
+  inv_Za = 2naa/(Za_aa*(2naa + nab)) + nab/(Za_ab*(2naa + nab))
+  inv_Zb = 2nbb/(Zb_bb*(2nbb + nab)) + nab/(Zb_ba*(2nbb + nab))
   return [1/inv_Za, 1/inv_Zb]
 end 
 
@@ -48,9 +47,13 @@ end
 Calculates configurational entropy of a Modified Quasichemical System
 given mole factions and configuration. Eqn 10 of Pelton et al I.  
 """
-function Sconfig(molefracs, pairfracs)
+function Sconfig(data::BinaryMQCModel, molefracs, pairfracs)
   Xa, Xb = molefracs 
   Xaa, Xbb, Xab = pairfracs 
+  Za, Zb = coordination(data, pairfracs)
+  totpairs = (Xa*Za+Xb*Zb)/2
+  #println(totpairs)
+  naa, nbb, nab = pairfracs .* totpairs 
   Ya = Xaa + Xab/2 
   Yb = Xbb + Xab/2 
   term1 = 0
@@ -62,13 +65,13 @@ function Sconfig(molefracs, pairfracs)
   end 
   term2 = 0 
   if Xaa != 0
-    term2 += Xaa*log(Xaa/Ya^2) 
+    term2 += naa*log(Xaa/Ya^2) 
   end 
   if Xbb != 0
-    term2 += Xbb*log(Xbb/Yb^2)
+    term2 += nbb*log(Xbb/Yb^2)
   end 
   if Xab != 0 
-    term2 += Xab*log(Xab/(2*Ya*Yb))
+    term2 += nab*log(Xab/(2*Ya*Yb))
   end 
   return -R_GAS*(term1 + term2)
 end 
@@ -77,7 +80,7 @@ end
 Calculates overall molar Gibbs energy of solution for a Quasichemical 
 system. Eqn 9 of Pelton et al. I 
 """
-function gibbs_binary_solution(data::BinaryMQCModel,molefracs, 
+function gibbs_binary_solution(data::BinaryMQCModel,molefracs,
                                pairfracs, purecompdata,temp)
   Xa, Xb = molefracs 
   if Xb == 0
@@ -86,50 +89,76 @@ function gibbs_binary_solution(data::BinaryMQCModel,molefracs,
     return gibbsenergy(purecompdata[2], temp)
   end 
   Xaa, Xbb, Xab = pairfracs 
-  #Za, Zb = coordination(data, pairfracs)
-  ΔSconfig = Sconfig(molefracs, pairfracs)
+  Za, Zb = coordination(data, pairfracs)
+  totpairs = (Xa*Za+Xb*Zb)/2
+  #println(totpairs)
+  naa, nbb, nab = pairfracs .* totpairs 
+  ΔSconfig = Sconfig(data, molefracs, pairfracs)
   Δgab = gab(data, pairfracs)
   ga = gibbsenergy(purecompdata[1], temp)
   gb = gibbsenergy(purecompdata[2], temp)
-  return Xa*ga + Xb*gb - temp*ΔSconfig + (Xab/2)*Δgab 
+  return Xa*ga + Xb*gb - temp*ΔSconfig + (nab/2)*Δgab 
 end 
 
 """
 Calculate excess Gibbs energy using Eqn 35 from Pelton and Blander.
 """
-function gibbs_excess(data::BinaryMQCModel, pairfracs)
+function gibbs_excess_eq35(data::BinaryMQCModel, npairs)
   aterms = 0.0 
   bterms = 0.0 
-  Xaa, Xbb, Xab = pairfracs 
+  naa, nbb, nab = npairs 
+  totpairs = sum(npairs)
+  Xaa, Xbb, Xab = npairs ./ totpairs  
   for i in 1:length(data.gaparams)
     aterms += data.gaparams[i]*Xaa^(i-1)
   end 
   for j in 1:length(data.gbparams)
     bterms += data.gbparams[j]*Xbb^(j-1)
   end 
-  return (Xaa*Xab*aterms + Xbb*Xab*bterms) * (Xaa+Xbb+Xab)/2 
+  return (Xaa*Xab*aterms + Xbb*Xab*bterms) * totpairs/2 
 end 
 
 function gibbs_excess2(data::BinaryMQCModel, molfracs, pairfracs,
                       purecompdata, temp)
   lgibbs = gibbs_binary_solution(data, molfracs, pairfracs, purecompdata, temp)
   puregibbs = sum([molfracs[i] * gibbsenergy(purecompdata[i], temp) for i in 1:length(molfracs)])
-  return lgibbs - puregibbs 
+  idealmixpiece = R_GAS*temp*sum([molfracs[i]*log(molfracs[i]) for i in 1:length(molfracs)])
+  return lgibbs - (puregibbs + idealmixpiece)
 end 
 
 function entropy_excess(data::BinaryMQCModel, molfracs, pairfracs,
                        purecompdata, temp)
-  return ForwardDiff.derivative(T -> gibbs_excess2(data, molfracs,
+  return -FiniteDifferences.central_fdm(5,1)(T -> gibbs_excess2(data, molfracs,
                                 pairfracs, purecompdata, T), temp)
 end 
 
 
 function enthalpy_excess(data::BinaryMQCModel, molfracs, pairfracs,
                        purecompdata, temp)
+  return ForwardDiff.derivative(inv_T -> gibbs_excess2(data, molfracs,
+            pairfracs, purecompdata, 1/inv_T)*inv_T, 1/temp)
+  #return gibbs_excess2(data, molfracs, pairfracs, purecompdata, temp) + 
+  #entropy_excess(data, molfracs, pairfracs, purecompdata, temp)*temp 
+end 
 
-  return gibbs_excess2(data, molfracs, pairfracs, purecompdata, temp) + 
-  entropy_excess(data, molfracs, pairfracs, purecompdata, temp)*temp 
-end
+function chemical_potential(data::BinaryMQCModel, purecompdata, molfracs,
+                            npairs, temp, compnum=1)
+  totpairs = sum(npairs)
+  xpairs = npairs ./ totpairs  
+  if compnum == 1 
+    myfunction(Xa) = gibbs_binary_solution(data, [Xa, molfracs[2]],
+                                          xpairs, purecompdata, temp)
+    mycomp = molfracs[1]
+  else 
+    myfunction(Xb) = gibbs_binary_solution(data, [molfracs[1], Xb],
+                                          xpairs, purecompdata, temp)
+    mycomp = molfracs[2]
+  end 
+  return ForwardDiff.derivative(myfunction, mycomp)
+end 
+
+
+
 struct PureComp{T}
   params::Vector{T}
 end
@@ -238,7 +267,7 @@ function find_configuration2(data::BinaryMQCModel,molefracs,
   Xa, Xb = molefracs
   Za_aa, Zb_bb, Za_ab,  Zb_ba= data.coordparams  
   function objectives!(err, pfracs)
-    Xaa, Xbb, Xab = pfracs
+    Xaa, Xbb, Xab =pfracs 
     yaa = Xaa*2/Za_aa + Xab/Za_ab 
     ybb = Xbb*2/Zb_bb + Xab/Zb_ba 
     err[1] = Xab^2/(Xaa*Xbb) - 4*exp(-gab(data, pfracs)/(R_GAS*temp))
@@ -267,6 +296,36 @@ function find_configuration2(data::BinaryMQCModel,molefracs,
   #println(answer)
   answer 
 end 
+function find_configuration3(data::BinaryMQCModel,molefracs, 
+                                purecompdata,temp,
+                                xg = missing)
+  Xa, Xb = molefracs
+  Za_aa, Zb_bb, Za_ab,  Zb_ba= data.coordparams 
+  function solvethis(nab)
+    naa = (Xa - nab/Za_ab)*Za_aa/2 
+    nbb = (Xb - nab/Zb_ba)*Zb_bb/2 
+    ptot = naa+nbb+nab 
+    pairfracs = [naa, nbb, nab] ./ ptot 
+    Xaa, Xbb, Xab = pairfracs
+    return Xab^2/(Xaa*Xbb) - 4*exp(-gab(data, pairfracs)/(R_GAS*temp))
+  end 
+  if ismissing(xg) || length(xg) != 3
+    # set an initital guess 
+    x0 = (0.0, max(Za_aa/2, Zb_bb/2))
+  else 
+    x0 = xg 
+  end 
+  xl, xu = x0 
+  answer = optimize(solvethis, xl, xu)
+  #println(answer)
+  nab_final = Optim.minimizer(answer)
+  naa_final = (Xa - nab_final/Za_ab)*Za_aa/2 
+  nbb_final = (Xb - nab_final/Zb_ba)*Zb_bb/2 
+  npairs = [naa_final, nbb_final, nab_final]
+  xpairs = [i/sum(npairs) for i in npairs]
+  return npairs, xpairs 
+end
+
 function bruteforce_configuration(data::BinaryMQCModel,molefracs, 
                                 purecompdata,temp,
                                 x0 = [0.5,0.5,0.0])

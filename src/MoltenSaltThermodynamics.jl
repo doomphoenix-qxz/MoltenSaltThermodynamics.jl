@@ -7,7 +7,8 @@ using LaTeXStrings
 using Optim 
 using ForwardDiff 
 using Debugger
-using NLsolve
+using NLsolve 
+using FiniteDifferences
 
 const R_GAS = 1.380649*6.02214076 # Boltzmann*Avogadro, values from CODATA18
 const FARADAY = 96485.3365
