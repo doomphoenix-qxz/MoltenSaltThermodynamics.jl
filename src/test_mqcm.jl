@@ -78,12 +78,12 @@ T_data_Hex = [1073., 1073., 1073., 1073.,
     1073., 1073., 1073.]
 
   # Pure Comp data from Table I of Pelton and Chartrand, Modified Quasichemical I
-  KCls = PureComp([-436684.1, 82.55023, 40.01578, 25.46801, 3.64845, 0.,0.])
-  KCll = PureComp([-421824.9, 86.5525, 73.59656, 0.,0.,0.,0.])
-  MgCl2s = PureComp([-641616.0, 89.629, 54.58434, 21.42127, -11.12119, 399.1767, -2.356672])
-                     MgCl2l = PureComp([-606887.4, 117.29708, 92.048, 0.,0.,0.,0.])
-                     K2MgCl4s = PureComp([-1550013.0, 216.8, 263.05,0.,0.,0.,0.])
-                     KMgCl3s = PureComp([-1100924.0, 162.3,157.65,0.,0.,0.,0.0])
+  KCls = MoltenSaltThermodynamics.PureComp([-436684.1, 82.55023, 40.01578, 25.46801, 3.64845, 0.,0.])
+  KCll = MoltenSaltThermodynamics.PureComp([-421824.9, 86.5525, 73.59656, 0.,0.,0.,0.])
+  MgCl2s = MoltenSaltThermodynamics.PureComp([-641616.0, 89.629, 54.58434, 21.42127, -11.12119, 399.1767, -2.356672])
+                     MgCl2l = MoltenSaltThermodynamics.PureComp([-606887.4, 117.29708, 92.048, 0.,0.,0.,0.])
+                     K2MgCl4s = MoltenSaltThermodynamics.PureComp([-1550013.0, 216.8, 263.05,0.,0.,0.,0.])
+                     KMgCl3s = MoltenSaltThermodynamics.PureComp([-1100924.0, 162.3,157.65,0.,0.,0.,0.0])
   Temp = 1073.0 
   mygab0 = -17947.0 
   mygai = [-1026.0]
@@ -96,7 +96,6 @@ T_data_Hex = [1073., 1073., 1073., 1073.,
   manyans = Vector{Any}(undef, length(my_mfracs))
   manyans[1] = myfunction(my_mfracs[1], initguess)
   max_nab = mycoordparams[1]/2  
-  @bp
   for i in 2:length(manyans)
     manyans[i] = myfunction(my_mfracs[i], manyans[i-1].zero)
   end 
@@ -117,12 +116,19 @@ T_data_Hex = [1073., 1073., 1073., 1073.,
   myent(m) = Sconfig(KClMgCl2_model, my_mfracs[m], Xminims[m])
   mygibbsex(j) = gibbs_excess_eq35(KClMgCl2_model, [naa[j], nbb[j], nab[j]])
   mygibbsex2(k) = gibbs_excess2(KClMgCl2_model, my_mfracs[k], Xminims[k], [KCll, MgCl2l], Temp)
+  mygibbsexc1(k) = gibbs_excess_comp2(KClMgCl2_model,[KCll, MgCl2l], my_mfracs[k], npairspace[k],  Temp)
+  mygibbsexc2(k) = gibbs_excess_comp2(KClMgCl2_model,[KCll, MgCl2l], my_mfracs[k], npairspace[k], Temp,2)
   myenthex2(l) = enthalpy_excess(KClMgCl2_model, my_mfracs[l], Xminims[l], [KCll, MgCl2l], Temp)
+  myact(m) = activity(KClMgCl2_model, [KCll, MgCl2l], my_mfracs[m], npairspace[m], Temp)
   gibbsltot = [mygibbs(i) for i in 1:length(manyans)]
   entconfig = [myent(m) for m in 1:length(manyans)]
   gibbsl = [mygibbsex(j) for j in 1:length(manyans)]
   gibbsx2 = [mygibbsex2(k) for k in 1:length(manyans)]
+  gibbsxc1 = [mygibbsexc1(k) for k in 1:length(manyans)]
+  gibbsxc2 = [mygibbsexc2(k) for k in 1:length(manyans)]
   enthex = [myenthex2(l) for l in 1:length(manyans)]
+  activkcl = [myact(m) for m in 1:length(manyans)]
+  #println(activkcl)
   #println(length(gibbsl))
   sc1 = plot(xab, label="Xab")
   plot!(sc1, xaa, label="Xaa")
@@ -130,25 +136,33 @@ T_data_Hex = [1073., 1073., 1073., 1073.,
   plot!(sc1, naa, label="naa")
   plot!(sc1, nab, label="nab")
   plot!(sc1, nbb, label="nbb")
-  savefig(sc1, "/home/doomphoenix/Documents/Research/MQCM/testfig1.png")
+  savefig(sc1, "/home/doomphoenix/ENTER/Research/MQCM/testfig1.png")
   display(sc1)
   #println(my_mfracs)
   #print(Xaspace)
   sc2 = plot(Xaspace ,gibbsl, label="GEx by Eqn 35")
   plot!(sc2, Xaspace, gibbsx2, label="GEx by definition")
   plot!(sc2, Xaspace, enthex, label="Hex")
-  scatter!(sc2, 1 .- x_data_Hex, Hex_data_Hex, label="Hex data")
-  savefig(sc2, "/home/doomphoenix/Documents/Research/MQCM/testfig2.png")
+  scatter!(sc2, x_data_Hex, Hex_data_Hex, label="Hex data")
+  savefig(sc2, "/home/doomphoenix/ENTER/Research/MQCM/testfig2.png")
   ##display(sc2) 
   #println("Gibbs of solid KCl at 1400: ", gibbsenergy(KCls, 1400.0))
   #println("Gibbs of solid MgCl2 at 1400: ", gibbsenergy(MgCl2s, 1400.0))
   sc3 = plot(Xaspace, gibbsltot, label="Total Gibbs liquid")
-  savefig(sc3, "/home/doomphoenix/Documents/Research/MQCM/testfig3.png")
+  savefig(sc3, "/home/doomphoenix/ENTER/Research/MQCM/testfig3.png")
   ##display(sc3)
   sc4 = plot(Xaspace, entconfig, label="Config. entropy")
-  savefig(sc4, "/home/doomphoenix/Documents/Research/MQCM/testfig4.png")
+  savefig(sc4, "/home/doomphoenix/ENTER/Research/MQCM/testfig4.png")
   ##display(sc4)
+  sc5 = plot(Xaspace ,activkcl, label="Act. KCl calc")
+  plot!(sc5, [0.0,1.0],[1.0,0.0])
+  scatter!(sc5, x_data_a2, a2_data_a2, label="Activ. data KCl")
+  savefig(sc5, "/home/doomphoenix/ENTER/Research/MQCM/testfig5.png")
+  sc6 = plot(Xaspace ,gibbsxc1, label="GEx KCl")
+  plot!(sc6, Xaspace, gibbsxc2, label="GEx MgCl2")
+  savefig(sc6, "/home/doomphoenix/ENTER/Research/MQCM/testfig6.png")
   println("Gibbs of total liquid at mole frac ", Xaspace[500], " KCl: ", gibbsltot[500])
+  println("Gibbs excess of total liquid at mole frac ", Xaspace[500], " KCl: ", gibbsx2[500])
   println("Entropy of total liquid at mole frac ", Xaspace[500], " KCl: ", gibbsltot[500])
   println("Config Entropy of total liquid at mole frac ", Xaspace[500], " KCl: ", entconfig[500])
 end

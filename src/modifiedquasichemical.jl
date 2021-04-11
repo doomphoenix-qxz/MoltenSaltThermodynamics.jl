@@ -56,21 +56,21 @@ function Sconfig(data::BinaryMQCModel, molefracs, pairfracs)
   naa, nbb, nab = pairfracs .* totpairs 
   Ya = Xaa + Xab/2 
   Yb = Xbb + Xab/2 
-  term1 = 0
-  if Xa != 0 
+  term1 = zero(eltype(molefracs))
+  if Xa != zero(eltype(molefracs))
     term1 += Xa*log(Xa) 
   end
-  if Xb!= 0
+  if Xb!= zero(eltype(molefracs))
     term1 += Xb*log(Xb)
   end 
-  term2 = 0 
-  if Xaa != 0
+  term2 = zero(eltype(molefracs))
+  if Xaa != zero(eltype(pairfracs))
     term2 += naa*log(Xaa/Ya^2) 
   end 
-  if Xbb != 0
+  if Xbb != zero(eltype(pairfracs))
     term2 += nbb*log(Xbb/Yb^2)
   end 
-  if Xab != 0 
+  if Xab != zero(eltype(pairfracs))
     term2 += nab*log(Xab/(2*Ya*Yb))
   end 
   return -R_GAS*(term1 + term2)
@@ -83,9 +83,9 @@ system. Eqn 9 of Pelton et al. I
 function gibbs_binary_solution(data::BinaryMQCModel,molefracs,
                                pairfracs, purecompdata,temp)
   Xa, Xb = molefracs 
-  if Xb == 0
+  if Xb == zero(eltype(molefracs))
     return gibbsenergy(purecompdata[1], temp)
-  elseif Xa ==0
+  elseif Xa == zero(eltype(molefracs))
     return gibbsenergy(purecompdata[2], temp)
   end 
   Xaa, Xbb, Xab = pairfracs 
@@ -103,9 +103,14 @@ end
 """
 Calculate excess Gibbs energy using Eqn 35 from Pelton and Blander.
 """
-function gibbs_excess_eq35(data::BinaryMQCModel, npairs)
-  aterms = 0.0 
-  bterms = 0.0 
+function gibbs_excess_eq35(data::BinaryMQCModel, npairs, ndiff=missing)
+  if !ismissing(ndiff)
+    myzero = zero(typeof(npairs[ndiff]))
+  else
+    myzero = zero(Float64)
+  end
+  aterms = myzero
+  bterms = myzero
   naa, nbb, nab = npairs 
   totpairs = sum(npairs)
   Xaa, Xbb, Xab = npairs ./ totpairs  
@@ -154,10 +159,111 @@ function chemical_potential(data::BinaryMQCModel, purecompdata, molfracs,
                                           xpairs, purecompdata, temp)
     mycomp = molfracs[2]
   end 
-  return ForwardDiff.derivative(myfunction, mycomp)
+  g0 = gibbsenergy(purecompdata[compnum], temp)
+  mu = ForwardDiff.derivative(myfunction, mycomp)
+  gex = mu - g0
+  #println("Pure Gibbs: "*string(g0)*".  Chemical potenital: " *string(mu) * ".  
+  #Gibbs Ex: " * string(gex))
+  return mu
 end 
 
+function gibbs_excess_comp(data::BinaryMQCModel, purecompdata, molfracs,
+  npairs, temp, compnum=1)
+  return chemical_potential(data, purecompdata, molfracs, npairs, temp, 
+  compnum) - gibbsenergy(purecompdata[compnum], temp)
+end 
 
+# function gibbs_excess_comp2(data::BinaryMQCModel, purecompdata, molfracs,
+#   npairs, temp, compnum=1)
+#   pairfracs = npairs ./ sum(npairs)
+#   Gextot = gibbs_excess2(data, molfracs, pairfracs, purecompdata, temp)
+#   myfunc = if compnum == 1 
+#     myfunca(xa) = gibbs_excess2(data, [xa, 1-xa], pairfracs, purecompdata, temp)
+#     myfunca
+#   elseif compnum == 2 
+#     #println("Ought to get here")
+#     myfuncb(xb) = gibbs_excess2(data, [1-xb, xb], pairfracs, purecompdata, temp)
+#     myfuncb
+#   else
+#     println("SAD!")
+#   end
+#   #println("It's the right version")
+#   mycomp = molfracs[compnum]
+#   return Gextot - ForwardDiff.derivative(myfunc, mycomp) * mycomp
+# end 
+function activity_coeff(data::BinaryMQCModel, purecompdata, molfracs,
+  npairs, temp, compnum=1)
+  return exp(gibbs_excess_comp(data, purecompdata, molfracs, npairs, temp,
+  compnum) / (R_GAS*temp))
+end
+
+function activity(data::BinaryMQCModel, purecompdata, molfracs,
+  npairs, temp, compnum=1)
+  return activity_coeff(data, purecompdata, molfracs,
+  npairs, temp, compnum) * molfracs[compnum]
+end
+
+function chemical_potential2(data::BinaryMQCModel, purecompdata, molfracs,
+  npairs, temp, compnum=1)
+  totpairs = sum(npairs)
+  xpairs = npairs ./ totpairs
+  myfunction = x-> x  
+  if compnum == 1 
+    myfunction(naa) = gibbs_excess_eq35(data,[naa,npairs[2],npairs[3]])
+  elseif compnum == 2
+    myfunction(nbb) = gibbs_excess_eq35(data,[npairs[1],nbb,npairs[3]])
+  else 
+    throw(DomainError("compnum must be 1 or 2"))
+  end 
+  mycomp = purecompdata[compnum]
+  mymfrac = molfracs[compnum]
+  mynp = npairs[compnum]
+  mypcomp = purecompdata[compnum]
+  mycoorddata = data.coordparams[compnum]
+  myxp = xpairs[compnum]
+  myY = xpairs[compnum] + xpairs[3]/2
+  #@infiltrate
+  part1 = gibbsenergy(mycomp,temp) + R_GAS*temp*log(mymfrac)
+  #part2_der = ForwardDiff.derivative(myfunction, mynp)
+  part2_der = FiniteDifferences.central_fdm(5,1,max_range=9e-4)(myfunction, mynp)
+  part2a = R_GAS*temp*log(myxp/myY^2)
+  total = part1 + (mycoorddata/2)*(part2a + part2_der)
+  #print("Part 1: " * string(part1) * "  ")
+  #print("Part 2a: " * string(part2a) * "  ")
+  #print("Derivative: "*string(part2_der)*"  ")
+  #println("Total: " * string(total))
+  return part1 + (mycoorddata/2)*(part2a + part2_der)
+end 
+
+function gibbs_excess_comp3(data::BinaryMQCModel, purecompdata, molfracs,
+npairs, temp, compnum=1)
+return chemical_potential2(data, purecompdata, molfracs, npairs, temp, 
+compnum) - gibbsenergy(purecompdata[compnum], temp)
+end 
+
+function gibbs_excess_comp2(data::BinaryMQCModel, purecompdata, molfracs,
+  npairs, temp, compnum=1)
+  return molfracs[compnum]*(chemical_potential2(data, purecompdata, molfracs, npairs, temp, 
+  compnum) - gibbsenergy(purecompdata[compnum], temp))
+  end 
+
+function activity_coeff3(data::BinaryMQCModel, purecompdata, molfracs,
+npairs, temp, compnum=1)
+return exp(gibbs_excess_comp2(data, purecompdata, molfracs, npairs, temp,
+compnum) / (R_GAS*temp))
+end
+
+function activity_coeff2(data::BinaryMQCModel, purecompdata, molfracs,
+  npairs, temp, compnum=1)
+  return exp(-gibbs_excess_comp2(data, purecompdata, molfracs, npairs, temp,
+  compnum) / (R_GAS*temp))
+  end
+
+function activity2(data::BinaryMQCModel, purecompdata, molfracs,
+npairs, temp, compnum=1)
+return activity_coeff2(data, purecompdata, molfracs,
+npairs, temp, compnum) * molfracs[compnum]
+end
 
 struct PureComp{T}
   params::Vector{T}
@@ -183,7 +289,7 @@ function entropy(pc::PureComp, T)
   (a*log(T0) + b*1e-3*T0 - (c*1e5/2)/(T0^2) - 2*d/sqrt(T0) + (e*1e-6/2)*T0^2)
 end
 
-
+# TODO: There's a problem here but I'm not sure what it is. Figure out how to fix!!!
 function gibbsenergy(pc::PureComp, T)
   return enthalpy(pc, T) - T*entropy(pc, T)
 end 
